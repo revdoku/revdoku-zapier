@@ -1,5 +1,5 @@
 const { apiRequest, wrappedData } = require("../lib/revdoku");
-const { bucketField, emailPath, sample } = require("../lib/email");
+const { mailboxField, emailPath, sample } = require("../lib/email");
 module.exports = {
   key: "list_emails",
   noun: "Email",
@@ -9,7 +9,7 @@ module.exports = {
   },
   operation: {
     inputFields: [
-      bucketField,
+      mailboxField,
       { key: "cursor", label: "Cursor", required: false },
       { key: "limit", label: "Limit", type: "integer", default: "50" },
       {

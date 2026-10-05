@@ -40,7 +40,7 @@ afterAll(() => {
 
 async function newEmail() {
   api()
-    .get("/v1/buckets/bkt_source/emails")
+    .get("/v1/mailboxes/bkt_source/emails")
     .query({ account_id: "acct_source", limit: 100, order: "desc" })
     .reply(
       200,
@@ -52,7 +52,7 @@ async function newEmail() {
   return (
     await run(App.triggers.new_email.operation.perform, {
       authData: sourceAuth,
-      inputData: { bucket_id: "bkt_source" },
+      inputData: { mailbox_id: "bkt_source" },
     })
   )[0];
 }
@@ -66,7 +66,7 @@ test("Slack and Sheets tutorial fields come from the trigger and optional Get Em
     Object.values(email),
   );
   api()
-    .get(`/v1/buckets/bkt_source/emails/${result.id}`)
+    .get(`/v1/mailboxes/bkt_source/emails/${result.id}`)
     .query({ account_id: "acct_source" })
     .reply(
       200,
@@ -81,7 +81,7 @@ test("Slack and Sheets tutorial fields come from the trigger and optional Get Em
     );
   const detail = await run(App.creates.get_email.operation.perform, {
     authData: sourceAuth,
-    inputData: { bucket_id: "bkt_source", email_id: result.id },
+    inputData: { mailbox_id: "bkt_source", email_id: result.id },
   });
   expect(detail).toMatchObject({
     id: email.id,
@@ -93,7 +93,7 @@ test("Slack and Sheets tutorial fields come from the trigger and optional Get Em
 test("backup tutorial hydrates the original with source credentials then uploads and marks read", async () => {
   const trigger = await newEmail();
   const sourceInput = {
-    bucket_id: "bkt_source",
+    mailbox_id: "bkt_source",
     email_id: trigger.id,
     attachment_id: "",
   };
@@ -118,7 +118,7 @@ test("backup tutorial hydrates the original with source credentials then uploads
     "utf8",
   );
   api()
-    .get(`/v1/buckets/bkt_source/emails/${trigger.id}/raw`)
+    .get(`/v1/mailboxes/bkt_source/emails/${trigger.id}/raw`)
     .query({ account_id: "acct_source" })
     .reply(
       200,
@@ -162,17 +162,17 @@ test("backup tutorial hydrates the original with source credentials then uploads
     .get("/original")
     .reply(200, stashed);
   const filename = `${trigger.id}.eml`;
-  const bucketPath = `email-backups/${filename}`;
+  const mailboxPath = `email-backups/${filename}`;
   api(destinationAuth)
     .post("/v1/direct_uploads", {
       account_id: "acct_destination",
-      bucket_id: "bkt_destination",
-      path: bucketPath,
+      mailbox_id: "bkt_destination",
+      path: mailboxPath,
       blob: {
         filename,
         byte_size: bytes.length,
         content_type: "message/rfc822",
-        purpose: "bucket_file",
+        purpose: "mailbox_file",
         checksum: crypto.createHash("md5").update(bytes).digest("base64"),
         sha256: crypto.createHash("sha256").update(bytes).digest("hex"),
       },
@@ -191,30 +191,30 @@ test("backup tutorial hydrates the original with source credentials then uploads
     .put("/object", bytes)
     .reply(200);
   api(destinationAuth)
-    .post("/v1/buckets/bkt_destination/files", {
+    .post("/v1/mailboxes/bkt_destination/files", {
       account_id: "acct_destination",
       signed_blob_id: "signed-example",
-      path: bucketPath,
+      path: mailboxPath,
       name: filename,
       role: "artifact",
     })
     .reply(
       201,
-      ok({ file: { id: "df_saved", path: bucketPath }, created: true }),
+      ok({ file: { id: "df_saved", path: mailboxPath }, created: true }),
     );
-  const saved = await run(App.creates.upload_bucket_file.operation.perform, {
+  const saved = await run(App.creates.upload_mailbox_file.operation.perform, {
     authData: destinationAuth,
     inputData: {
-      bucket_id: "bkt_destination",
+      mailbox_id: "bkt_destination",
       file: fileUrl,
       filename,
-      path: bucketPath,
+      path: mailboxPath,
       content_type: "message/rfc822",
     },
   });
-  expect(saved.file.path).toBe(bucketPath);
+  expect(saved.file.path).toBe(mailboxPath);
   api()
-    .patch(`/v1/buckets/bkt_source/emails/${trigger.id}`, {
+    .patch(`/v1/mailboxes/bkt_source/emails/${trigger.id}`, {
       account_id: "acct_source",
       read: true,
     })
@@ -222,7 +222,7 @@ test("backup tutorial hydrates the original with source credentials then uploads
   expect(
     await run(App.creates.update_email.operation.perform, {
       authData: sourceAuth,
-      inputData: { bucket_id: "bkt_source", email_id: trigger.id, read: true },
+      inputData: { mailbox_id: "bkt_source", email_id: trigger.id, read: true },
     }),
   ).toMatchObject({ id: trigger.id, read: true });
 });
@@ -235,7 +235,7 @@ test("tutorial names match the actual Revdoku actions", () => {
   for (const key of [
     "get_email",
     "download_email_file",
-    "upload_bucket_file",
+    "upload_mailbox_file",
     "update_email",
   ]) {
     expect(tutorial).toContain(App.creates[key].display.label);

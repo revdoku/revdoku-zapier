@@ -1,5 +1,5 @@
 const { apiRequest, wrappedData } = require("../lib/revdoku");
-const { bucketField, emailField, emailPath, sample } = require("../lib/email");
+const { mailboxField, emailField, emailPath, sample } = require("../lib/email");
 module.exports = {
   key: "get_email",
   noun: "Email",
@@ -8,7 +8,7 @@ module.exports = {
     description: "Gets email text and attachment metadata.",
   },
   operation: {
-    inputFields: [bucketField, emailField],
+    inputFields: [mailboxField, emailField],
     perform: async (z, bundle) =>
       wrappedData(
         await apiRequest(z, bundle, { path: emailPath(bundle.inputData) }),

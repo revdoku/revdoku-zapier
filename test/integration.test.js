@@ -5,17 +5,17 @@ const {
   apiRequest,
   bufferFromUploadInput,
   downloadEmailFile,
-  downloadBucketFile,
+  downloadMailboxFile,
 } = require("../lib/revdoku");
 const run = zapier.createAppTester(App);
 const origin = "https://api.revdoku.com";
 const authData = { api_token: "revdoku_test_key", account_id: "acct_client" };
 const bundle = (inputData = {}) => ({ authData, inputData });
 const ok = (data) => ({ success: true, data });
-const bucket = { id: "bkt_1", title: "Invoices" };
+const mailbox = { id: "bkt_1", email: { address: "invoices@revdokumail.com" } };
 const file = {
   id: "df_1",
-  bucket_id: bucket.id,
+  mailbox_id: mailbox.id,
   path: "Notes.txt",
   basename: "Notes.txt",
   current_file_version: { byte_size: 4, mime_type: "text/plain" },
@@ -75,33 +75,32 @@ test.each([401, 403, 429, 503])(
 
 test("mutation failure is made once and does not ask Zapier to retry", async () => {
   api()
-    .post("/v1/buckets")
+    .post("/v1/mailboxes")
     .reply(503, {
       success: false,
       error: {
         code: "RECEIVING_PENDING",
-        message: "Check the bucket before retrying",
+        message: "Check the mailbox before retrying",
       },
     });
-  await expect(action("create_bucket", { title: "Inbox" })).rejects.toThrow(
-    /Check the bucket/,
+  await expect(action("create_mailbox", { email_username: "invoices" })).rejects.toThrow(
+    /Check the mailbox/,
   );
 });
 
 test("malformed success is not silently returned as an empty list", async () => {
-  api().get("/v1/buckets").query(true).reply(200, { buckets: [] });
+  api().get("/v1/mailboxes").query(true).reply(200, { mailboxes: [] });
   await expect(
-    run(App.triggers.buckets.operation.perform, bundle()),
+    run(App.triggers.mailboxes.operation.perform, bundle()),
   ).rejects.toThrow(/invalid response/);
 });
 
 test("create mailbox sends the username, metadata, labels and reason with account scope", async () => {
   api()
-    .post("/v1/buckets", {
+    .post("/v1/mailboxes", {
       account_id: "acct_client",
       reason: "Customer invoices",
-      bucket: {
-        title: "Invoices",
+      mailbox: {
         email: { username: "invoices" },
         tag_paths: ["work"],
         metadata: { project: "billing" },
@@ -110,12 +109,11 @@ test("create mailbox sends the username, metadata, labels and reason with accoun
     .reply(
       201,
       ok({
-        bucket: { ...bucket, email: { address: "invoices@revdokumail.com" } },
+        mailbox: { ...mailbox, email: { address: "invoices@revdokumail.com" } },
       }),
     );
   expect(
-    await action("create_bucket", {
-      title: "Invoices",
+    await action("create_mailbox", {
       email_username: "invoices",
       tag_paths: "work",
       metadata: '{"project":"billing"}',
@@ -129,26 +127,26 @@ test("create mailbox sends the username, metadata, labels and reason with accoun
 
 test("file dropdown retrieves the next page", async () => {
   api()
-    .get("/v1/buckets/bkt_1/files")
+    .get("/v1/mailboxes/bkt_1/files")
     .query({ account_id: "acct_client", limit: 100, offset: 100 })
     .reply(200, ok({ files: [file] }));
-  const result = await run(App.triggers.bucket_files.operation.perform, {
-    ...bundle({ bucket_id: "bkt_1" }),
+  const result = await run(App.triggers.mailbox_files.operation.perform, {
+    ...bundle({ mailbox_id: "bkt_1" }),
     meta: { page: 1 },
   });
   expect(result[0]).toMatchObject({ id: "df_1", byte_size: 4 });
-  expect(App.triggers.bucket_files.operation.canPaginate).toBe(true);
+  expect(App.triggers.mailbox_files.operation.canPaginate).toBe(true);
 });
 
 test("find file uses the detail endpoint for IDs beyond the first page", async () => {
   api()
-    .get("/v1/buckets/bkt_1/files/df_1")
+    .get("/v1/mailboxes/bkt_1/files/df_1")
     .query({ account_id: "acct_client" })
     .reply(200, ok({ file }));
   expect(
     await run(
-      App.searches.find_bucket_file.operation.perform,
-      bundle({ bucket_id: "bkt_1", file_id: "df_1" }),
+      App.searches.find_mailbox_file.operation.perform,
+      bundle({ mailbox_id: "bkt_1", file_id: "df_1" }),
     ),
   ).toEqual([
     expect.objectContaining({ id: "df_1", file: expect.any(String) }),
@@ -157,7 +155,7 @@ test("find file uses the detail endpoint for IDs beyond the first page", async (
 
 test("find file preserves path case and searches subsequent pages", async () => {
   api()
-    .get("/v1/buckets/bkt_1/files")
+    .get("/v1/mailboxes/bkt_1/files")
     .query({ account_id: "acct_client", q: "Notes.txt", limit: 100, offset: 0 })
     .reply(
       200,
@@ -167,14 +165,14 @@ test("find file preserves path case and searches subsequent pages", async () => 
       }),
     );
   api()
-    .get("/v1/buckets/bkt_1/files")
+    .get("/v1/mailboxes/bkt_1/files")
     .query({ account_id: "acct_client", q: "Notes.txt", limit: 100, offset: 1 })
     .reply(200, ok({ files: [file], pagination: { has_more: false } }));
   expect(
     (
       await run(
-        App.searches.find_bucket_file.operation.perform,
-        bundle({ bucket_id: "bkt_1", path: "Notes.txt" }),
+        App.searches.find_mailbox_file.operation.perform,
+        bundle({ mailbox_id: "bkt_1", path: "Notes.txt" }),
       )
     )[0].id,
   ).toBe("df_1");
@@ -182,7 +180,7 @@ test("find file preserves path case and searches subsequent pages", async () => 
 
 test("find file rejects a nonadvancing page", async () => {
   api()
-    .get("/v1/buckets/bkt_1/files")
+    .get("/v1/mailboxes/bkt_1/files")
     .query(true)
     .reply(
       200,
@@ -190,18 +188,18 @@ test("find file rejects a nonadvancing page", async () => {
     );
   await expect(
     run(
-      App.searches.find_bucket_file.operation.perform,
-      bundle({ bucket_id: "bkt_1", path: "missing" }),
+      App.searches.find_mailbox_file.operation.perform,
+      bundle({ mailbox_id: "bkt_1", path: "missing" }),
     ),
   ).rejects.toThrow(/did not advance/);
 });
 
-test.each(["find_bucket", "find_bucket_file"])(
+test.each(["find_mailbox", "find_mailbox_file"])(
   "%s returns no results on 404",
   async (key) => {
     const isFile = key.endsWith("file");
     api()
-      .get(`/v1/buckets/bkt_missing${isFile ? "/files/df_missing" : ""}`)
+      .get(`/v1/mailboxes/bkt_missing${isFile ? "/files/df_missing" : ""}`)
       .query(true)
       .reply(404, {
         success: false,
@@ -211,7 +209,7 @@ test.each(["find_bucket", "find_bucket_file"])(
       await run(
         App.searches[key].operation.perform,
         bundle({
-          bucket_id: "bkt_missing",
+          mailbox_id: "bkt_missing",
           file_id: isFile ? "df_missing" : undefined,
         }),
       ),
@@ -221,7 +219,7 @@ test.each(["find_bucket", "find_bucket_file"])(
 
 test("new email polls newest arrivals through multiple pages with stable IDs", async () => {
   api()
-    .get("/v1/buckets/bkt_1/emails")
+    .get("/v1/mailboxes/bkt_1/emails")
     .query({ account_id: "acct_client", limit: 100, order: "desc" })
     .reply(
       200,
@@ -231,7 +229,7 @@ test("new email polls newest arrivals through multiple pages with stable IDs", a
       }),
     );
   api()
-    .get("/v1/buckets/bkt_1/emails")
+    .get("/v1/mailboxes/bkt_1/emails")
     .query({
       account_id: "acct_client",
       limit: 100,
@@ -247,14 +245,14 @@ test("new email polls newest arrivals through multiple pages with stable IDs", a
     );
   const result = await run(
     App.triggers.new_email.operation.perform,
-    bundle({ bucket_id: "bkt_1" }),
+    bundle({ mailbox_id: "bkt_1" }),
   );
   expect(result.map((email) => email.id)).toEqual(["eml_late", "eml_older"]);
 });
 
 test("list emails retains the empty-page polling cursor", async () => {
   api()
-    .get("/v1/buckets/bkt_1/emails")
+    .get("/v1/mailboxes/bkt_1/emails")
     .query({
       account_id: "acct_client",
       limit: 50,
@@ -266,21 +264,21 @@ test("list emails retains the empty-page polling cursor", async () => {
       ok({ emails: [], pagination: { has_more: false, next_cursor: "new" } }),
     );
   expect(
-    (await action("list_emails", { bucket_id: "bkt_1", cursor: "old" }))
+    (await action("list_emails", { mailbox_id: "bkt_1", cursor: "old" }))
       .pagination.next_cursor,
   ).toBe("new");
 });
 
 test("read status sends boolean false", async () => {
   api()
-    .patch("/v1/buckets/bkt_1/emails/eml_1", {
+    .patch("/v1/mailboxes/bkt_1/emails/eml_1", {
       account_id: "acct_client",
       read: false,
     })
     .reply(200, ok({ email: { id: "eml_1", read: false } }));
   expect(
     await action("update_email", {
-      bucket_id: "bkt_1",
+      mailbox_id: "bkt_1",
       email_id: "eml_1",
       read: false,
     }),
@@ -289,14 +287,14 @@ test("read status sends boolean false", async () => {
 
 test("email deletion handles 204", async () => {
   api()
-    .delete("/v1/buckets/bkt_1/emails/eml_1", {
+    .delete("/v1/mailboxes/bkt_1/emails/eml_1", {
       account_id: "acct_client",
       reason: "Requested removal",
     })
     .reply(204);
   expect(
     await action("delete_email", {
-      bucket_id: "bkt_1",
+      mailbox_id: "bkt_1",
       email_id: "eml_1",
       confirm: true,
       reason: "Requested removal",
@@ -304,12 +302,12 @@ test("email deletion handles 204", async () => {
   ).toEqual({ id: "eml_1", deleted: true });
 });
 
-test.each(["delete_email", "delete_bucket_file", "archive_bucket"])(
+test.each(["delete_email", "delete_mailbox_file", "archive_mailbox"])(
   "%s requires confirmation before a request",
   async (key) => {
     await expect(
       action(key, {
-        bucket_id: "bkt_1",
+        mailbox_id: "bkt_1",
         email_id: "eml_1",
         file_id: "df_1",
         confirm: false,
@@ -323,7 +321,7 @@ test("direct upload succeeds with reason and no API key on object storage", asyn
   api()
     .post("/v1/direct_uploads", {
       account_id: "acct_client",
-      bucket_id: "bkt_1",
+      mailbox_id: "bkt_1",
       path: "note.txt",
       reason: "Save invoice",
       blob: {
@@ -332,7 +330,7 @@ test("direct upload succeeds with reason and no API key on object storage", asyn
         checksum: crypto.createHash("md5").update("note").digest("base64"),
         sha256: crypto.createHash("sha256").update("note").digest("hex"),
         content_type: "text/plain",
-        purpose: "bucket_file",
+        purpose: "mailbox_file",
       },
     })
     .reply(
@@ -349,7 +347,7 @@ test("direct upload succeeds with reason and no API key on object storage", asyn
     .put("/object", "note")
     .reply(200);
   api()
-    .post("/v1/buckets/bkt_1/files", {
+    .post("/v1/mailboxes/bkt_1/files", {
       account_id: "acct_client",
       signed_blob_id: "signed",
       path: "note.txt",
@@ -359,8 +357,8 @@ test("direct upload succeeds with reason and no API key on object storage", asyn
     })
     .reply(201, ok({ file, created: true }));
   expect(
-    await action("upload_bucket_file", {
-      bucket_id: "bkt_1",
+    await action("upload_mailbox_file", {
+      mailbox_id: "bkt_1",
       content: "note",
       filename: "note.txt",
       reason: "Save invoice",
@@ -373,7 +371,7 @@ test("identical upload returns the existing file without a PUT or attachment req
     .post("/v1/direct_uploads")
     .reply(200, ok({ skipped: true, duplicate: true, file }));
   expect(
-    await action("upload_bucket_file", { bucket_id: "bkt_1", content: "note" }),
+    await action("upload_mailbox_file", { mailbox_id: "bkt_1", content: "note" }),
   ).toMatchObject({ skipped: true, file: { id: "df_1" } });
 });
 
@@ -397,8 +395,8 @@ test("file input has no bearer header and tolerates malformed filename encoding"
     .post("/v1/direct_uploads")
     .reply(200, ok({ skipped: true, file }));
   expect(
-    await action("upload_bucket_file", {
-      bucket_id: "bkt_1",
+    await action("upload_mailbox_file", {
+      mailbox_id: "bkt_1",
       file: "https://files.example.com/input",
     }),
   ).toMatchObject({ skipped: true });
@@ -424,11 +422,11 @@ test("email hydration gets a fresh link then downloads without authentication", 
   expect(
     await downloadEmailFile(
       { request, stashFile },
-      bundle({ bucket_id: "bkt_1", email_id: "eml_1", attachment_id: "df_1" }),
+      bundle({ mailbox_id: "bkt_1", email_id: "eml_1", attachment_id: "df_1" }),
     ),
   ).toBe("stashed");
   expect(request.mock.calls[0][0].url).toBe(
-    `${origin}/v1/buckets/bkt_1/emails/eml_1/attachments/df_1`,
+    `${origin}/v1/mailboxes/bkt_1/emails/eml_1/attachments/df_1`,
   );
   expect(request.mock.calls[1][0]).toEqual({
     url: "https://storage.example.com/fresh",
@@ -454,9 +452,9 @@ test("file hydration follows the redirect without forwarding the bearer key", as
       headers: { "content-length": "4", "content-type": "text/plain" },
     });
   const stashFile = jest.fn().mockResolvedValue("stashed");
-  await downloadBucketFile(
+  await downloadMailboxFile(
     { request, stashFile },
-    bundle({ bucket_id: "bkt_1", file_id: "df_1", filename: "note.txt" }),
+    bundle({ mailbox_id: "bkt_1", file_id: "df_1", filename: "note.txt" }),
   );
   expect(request.mock.calls[0][0].redirect).toBe("manual");
   expect(request.mock.calls[1][0]).toEqual({
@@ -467,7 +465,7 @@ test("file hydration follows the redirect without forwarding the bearer key", as
 
 test("retired website and login-link actions are absent", () => {
   expect(Object.keys(App.creates)).not.toEqual(
-    expect.arrayContaining(["publish_bucket"]),
+    expect.arrayContaining(["publish_mailbox"]),
   );
   expect(App.triggers.new_form_submission).toBeUndefined();
   expect(App.creates.browser_login_link).toBeUndefined();

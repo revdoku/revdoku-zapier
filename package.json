@@ -1,7 +1,7 @@
 {
   "name": "@revdoku/zapier",
   "version": "2.0.0",
-  "description": "Revdoku email inboxes and private file storage for Zapier.",
+  "description": "Revdoku email mailboxes and private file storage for Zapier.",
   "main": "index.js",
   "engines": {
     "node": ">=22"
