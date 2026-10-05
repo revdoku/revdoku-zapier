@@ -1,6 +1,6 @@
 const { apiRequest, boolInput, wrappedData } = require("../lib/revdoku");
 const {
-  bucketField,
+  mailboxField,
   emailField,
   emailPath,
   reasonField,
@@ -15,7 +15,7 @@ module.exports = {
   },
   operation: {
     inputFields: [
-      bucketField,
+      mailboxField,
       emailField,
       { key: "read", label: "Read", type: "boolean", required: true },
       reasonField,

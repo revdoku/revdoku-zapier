@@ -1,5 +1,5 @@
 const { downloadEmailFile } = require("../lib/revdoku");
-const { bucketField, emailField } = require("../lib/email");
+const { mailboxField, emailField } = require("../lib/email");
 module.exports = {
   key: "download_email_file",
   noun: "Email File",
@@ -10,7 +10,7 @@ module.exports = {
   },
   operation: {
     inputFields: [
-      bucketField,
+      mailboxField,
       emailField,
       { key: "attachment_id", label: "Attachment ID", required: false },
     ],

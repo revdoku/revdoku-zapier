@@ -11,7 +11,7 @@ module.exports = {
       wrappedData(await apiRequest(z, bundle, { path: "/account/limits" })),
     sample: {
       account_id: "acct_sample",
-      limits: { max_buckets: 3, max_storage_bytes: 1073741824 },
+      limits: { max_mailboxes: 3, max_storage_bytes: 1073741824 },
     },
   },
 };

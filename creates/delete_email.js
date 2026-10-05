@@ -1,6 +1,6 @@
 const { apiRequest, requireConfirmation } = require("../lib/revdoku");
 const {
-  bucketField,
+  mailboxField,
   emailField,
   emailPath,
   reasonField,
@@ -15,7 +15,7 @@ module.exports = {
   },
   operation: {
     inputFields: [
-      bucketField,
+      mailboxField,
       emailField,
       {
         key: "confirm",

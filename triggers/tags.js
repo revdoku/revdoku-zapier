@@ -15,10 +15,10 @@ const perform = async (z, bundle) => {
 
 module.exports = {
   key: "tags",
-  noun: "Bucket Label",
+  noun: "Mailbox Label",
   display: {
-    label: "Bucket Labels",
-    description: "Lists reusable Revdoku bucket labels.",
+    label: "Mailbox Labels",
+    description: "Lists reusable Revdoku mailbox labels.",
     hidden: true,
   },
   operation: {

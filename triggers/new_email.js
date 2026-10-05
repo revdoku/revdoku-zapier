@@ -1,5 +1,5 @@
 const { apiRequest, wrappedData } = require("../lib/revdoku");
-const { bucketField, emailPath, sample } = require("../lib/email");
+const { mailboxField, emailPath, sample } = require("../lib/email");
 
 const perform = async (z, bundle) => {
   const emails = [];
@@ -37,7 +37,7 @@ module.exports = {
   noun: "Email",
   display: {
     label: "New Email",
-    description: "Triggers when an email arrives in a Revdoku inbox.",
+    description: "Triggers when an email arrives in a Revdoku mailbox.",
   },
-  operation: { inputFields: [bucketField], perform, sample },
+  operation: { inputFields: [mailboxField], perform, sample },
 };
