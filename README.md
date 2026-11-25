@@ -1,16 +1,16 @@
 # Revdoku for Zapier
 
-Connect incoming email and private files to Slack, Google Sheets and other apps.
+Send the support requests of your Revdoku docs site to Slack, Google Sheets and other apps, and answer them from a Zap.
 
 [Request Zapier access from support@revdoku.com](mailto:support@revdoku.com?subject=Revdoku%20Zapier%20access), including the email you use for Zapier. Support will confirm availability and provide setup access.
 
 ## Start
 
 1. Accept the invitation, then [create an API key and connect](USAGE.md#connect).
-2. Choose **New Email** and a source mailbox.
-3. Follow a [short tutorial](TUTORIAL.md) to notify Slack, append a Sheets row or back up email.
+2. Choose **New Support Request** and the project of your docs site.
+3. Follow a [short tutorial](TUTORIAL.md) to notify Slack or to keep a sheet of requests.
 
-[Supported steps](USAGE.md) · [Revdoku API](https://revdoku.com/api.md)
+[Steps and limits](USAGE.md) · [Revdoku API](https://support.revdoku.com/docs/api)
 
 ## Develop
 

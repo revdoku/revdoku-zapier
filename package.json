@@ -1,7 +1,7 @@
 {
   "name": "@revdoku/zapier",
-  "version": "2.0.0",
-  "description": "Revdoku email mailboxes and private file storage for Zapier.",
+  "version": "5.0.0",
+  "description": "Revdoku in Zapier: the support requests of your docs site.",
   "main": "index.js",
   "engines": {
     "node": ">=22"
@@ -11,7 +11,6 @@
     "validate": "zapier-platform validate"
   },
   "dependencies": {
-    "mime-types": "^3.0.1",
     "zapier-platform-core": "19.1.0"
   },
   "devDependencies": {

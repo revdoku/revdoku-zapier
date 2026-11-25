@@ -1,37 +1,63 @@
 # Revdoku for Zapier
 
-Connect incoming email and private file storage to Zaps.
-
-Follow the [short tutorials](TUTORIAL.md) to connect new email to Slack, Google Sheets, or another Revdoku mailbox.
+For a person who runs a docs site on Revdoku and wants its support requests in other tools. The [tutorials](TUTORIAL.md) show two Zaps.
 
 ## Connect
 
-1. [Request Zapier access](mailto:support@revdoku.com?subject=Revdoku%20Zapier%20access) with the email you use for Zapier. Support will confirm availability and provide an invitation. Accept it before continuing.
-2. Sign up or sign in to Revdoku and create an API key in [Account → Access](https://app.revdoku.com/account/access). Signup creates a starter mailbox. A mailbox is an mailbox with its own receiving address and private file storage.
-3. Enter the key in the Zapier connection. Set an Account ID when using another granted account; otherwise the key's default account applies. Discover account IDs with the [account list API](https://revdoku.com/api.md#accounts). Selecting an account in the dashboard does not change the connection.
-4. Test the connection, then select a mailbox in the Zap step. If no mailbox appears, check the key's account and mailbox grants.
+1. [Request Zapier access](mailto:support@revdoku.com?subject=Revdoku%20Zapier%20access) with the email you use for Zapier. Accept the invitation from support.
+2. Create an API key in [Account → Access](https://app.revdoku.com/account/access). The trigger and Find Ticket need read access to the project. Reply to Ticket and Solve or Reopen Ticket need write access.
+3. Enter the key in the Zapier connection. Leave **Account ID** empty, unless the key reaches another account that you want to use.
+4. Test the connection. Then choose your project by its name in each step.
 
-Read access covers New Email, List/Get Email and downloads. Uploading and changing read status require mailbox write access; deleting email requires mailbox admin. Create Mailbox requires account-wide admin access, so a key restricted to selected mailboxes cannot run that action.
+## Steps
 
-## Supported steps
+| Kind | Step | What it does |
+| --- | --- | --- |
+| Trigger | New Support Request | Starts the Zap for each new message from a person: the first message of a ticket and each later message that a person sends on it. |
+| Action | Reply to Ticket | Sends a plain-text reply to the person who asked. |
+| Action | Solve or Reopen Ticket | Sets the ticket to Solved or Open. |
+| Search | Find Ticket | Finds a ticket by its ID or its number. |
 
-| Kind | Steps |
+### New Support Request
+
+| Field | Content |
 | --- | --- |
-| Trigger | New Email |
-| Email actions | List Emails, Get Email, Set Email Read Status, Delete Email, Download Email File (original or attachment) |
-| Storage actions | Create Mailbox, Upload File to Mailbox, Delete Mailbox File, Archive Mailbox |
-| Account and history | Get Account Status, Get Account Limits, List Mailbox Versions, Get Mailbox Version |
-| Searches | Find Mailbox, Find Mailbox File |
+| Message ID | The ID of the message. Zapier uses it to start the Zap once for each message. |
+| Ticket ID, Ticket Number | The ticket of the message. Use Ticket ID in the other steps. |
+| New Ticket | True when this message opened the ticket. False for a later message on it. |
+| Ticket Status | `open` or `solved`. |
+| Channel | `chat` for a message left on the docs site, `email` for an email. Tickets from before 2026-11-12 can have `feedback`. |
+| Requester Name, Requester Address | The person who asked. Empty for a `feedback` ticket. |
+| Subject, Message Text | The message as plain text. |
+| Message Text Status | `complete`, `empty`, `truncated` or `unavailable`. |
+| Received | The time Revdoku received the message. |
+| Open in Revdoku | The address of the message in the Revdoku dashboard. |
 
-New Email polls the latest 1,000 arrivals and uses stable message IDs for Zapier's deduplication. More than 1,000 arrivals between successful polls can be missed; use a shorter polling interval or a consumer that retains the API's arrival cursor for larger volumes. List Emails exposes that cursor explicitly. Filters must stay unchanged when reusing a cursor.
+Limits:
 
-File outputs are Zapier file references. The integration obtains a fresh temporary download link when the file is used by a later step. Uploads accept a file URL or UTF-8 text, including empty text. Deletion and archiving require the action's confirmation field.
+- A request appears when a person gives an email address: an email to the project, or **Leave a message** on the docs site. An Ask chat without a left message and page feedback do not start the Zap.
+- Text only. The step gives no attachments and no HTML.
+- Zapier asks Revdoku for new requests at the interval of your Zapier plan. A request arrives in the Zap after that interval, not at once.
+- Revdoku checks a new message before integrations can read it. This can take about a minute; the message then arrives with the next poll. A message that Revdoku marks as Junk never starts the Zap.
+- Each poll reads up to 100 tickets with the newest activity of the last 24 hours, and at most 200 messages of each ticket. A Zap that was off, or failed, for more than 24 hours does not get the messages of that time. More than 25 tickets with new messages between two polls can lose the oldest of them.
+- Replies sent from Revdoku and drafts do not start the Zap.
 
-New Email returns headers and IDs. Use Get Email for `body_text`, `body_status` and attachment metadata. For one attachment, map that email's `id` into Email ID and an entry's `attachments[].id` into Attachment ID. Map Download Email File's **File** output to a later file input. Leaving Attachment ID blank downloads the original EML, including its original attachments.
+### Reply to Ticket
 
-Reading and downloading do not mark an email read. Read status is shared across the dashboard and integrations; it is separate from Zapier's trigger deduplication. [Compare SDK, n8n, CLI and MCP behavior](https://github.com/revdoku/revdoku/blob/main/guides/api-packages.md).
+Fields: Project, Ticket ID and Reply Text. The reply has no recipient field: it goes to the person who asked.
 
-If Create Mailbox fails with `EMAIL_NOT_READY` or times out, inspect the account's mailbox list before running it again. A mailbox may already exist. Do not configure blind creation retries; each creation consumes capacity.
+- The reply is sent at once.
+- Uses credits; see [Pricing](https://app.revdoku.com/pricing).
+- The step sends once. When Revdoku does not confirm the result, the step stops with "Revdoku did not confirm the result". Open the ticket in Revdoku before you run the step again.
+- Revdoku refuses a reply to a ticket that has nobody to reply to, without enough credits, above the sending limit, while Revdoku works on the ticket, and to a message held as Junk. The step shows Revdoku's reason.
+
+### Solve or Reopen Ticket
+
+Fields: Project, Ticket ID and Status (Solved or Open). A new message from the person opens a solved ticket again.
+
+### Find Ticket
+
+Enter a Ticket ID, or a Ticket Number such as 12 for `[#12]` in a reply's subject. The API has no search by number, so the step looks in the 600 tickets with the newest activity. The number search skips tickets held as Junk.
 
 ## Development
 
@@ -43,6 +69,6 @@ npm test
 npm run validate
 ```
 
-Tests use the real Zapier app runner and local HTTP fixtures. They cover account scope, permissions, pagination, rate limits, uploads, downloads and credential boundaries. They do not call a live Revdoku account.
+Tests use the real Zapier app runner and local HTTP fixtures. They do not call a live Revdoku account.
 
-Maintainers link the intended Zapier app with a local, ignored `.zapierapprc`. Publishing requires a separately approved `npx zapier-platform push`, then testing the installed integration with a real connection. Repository CI validates the source without publishing it.
+Maintainers link the intended Zapier app with a local, ignored `.zapierapprc`. Publishing is a separate, approved step. Repository CI validates the source without publishing it.
